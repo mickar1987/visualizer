@@ -7,6 +7,7 @@ import {
 import { MEASURE_COLORS, measureTitle } from './model.js';
 import { CAPS } from './device.js';
 import { t } from './i18n.js';
+import { drawAllAnnotations, annoDistance, newArrow } from './annotations.js';
 
 const ACCENT = '#ffd400', ROT = '#4caf50', EDGE = '#1ec8e6';
 const PARTNER = { 0: 3, 3: 0, 1: 2, 2: 1 }, PARTNER_H = { 0: 1, 1: 0, 3: 2, 2: 3 };
@@ -58,6 +59,7 @@ export class Editor {
     this.renderer = new Renderer(this.gl);
     this.view = { zoom: 1, x: 0, y: 0 }; // image -> CSS px
     this.pointers = new Map();
+    this.annoBoxes = new Map(); // text annotation hit boxes (image coords)
     this.pending = null;     // drawn line / crop frame waiting for the user's confirmation
     this.drag = null;
     this.tool = null;        // 'w' | 'h' while drawing a scale line
@@ -128,6 +130,11 @@ export class Editor {
     c.setTransform(d, 0, 0, d, 0, 0);
     if (!this.doc.bg) return;
     const step = this.app.step;
+    c.save();
+    c.setTransform(d * this.view.zoom, 0, 0, d * this.view.zoom, d * this.view.x, d * this.view.y);
+    drawAllAnnotations(c, this.doc, this.annoBoxes);
+    if (this.drag && this.drag.type === 'newArrow') drawAllAnnotations(c, { bg: this.doc.bg, screens: [], annotations: [this.drag.a] });
+    c.restore();
     if (step === 2 || this.app.showMeasures) {
       for (const [k, m] of Object.entries(this.doc.measures)) this.drawMeasure(k, m.p1, m.p2, m.cm);
     }
@@ -144,7 +151,30 @@ export class Editor {
         c.stroke(); c.setLineDash([]);
       }
       for (const s of this.doc.screens) if (sel.has(s.id)) this.drawHandles(s);
+      const a = this.app.currentAnno;
+      if (a) this.drawAnnoSelection(a);
     }
+  }
+
+  drawAnnoSelection(a) {
+    const c = this.octx, r = CAPS.mobile ? 11 : 7;
+    c.setLineDash([6, 4]); c.strokeStyle = ACCENT; c.lineWidth = 1.5;
+    if (a.type === 'text') {
+      const b = this.annoBoxes.get(a.id);
+      if (b) { const p = this.toView({ x: b.x0, y: b.y0 }), q = this.toView({ x: b.x1, y: b.y1 }); c.strokeRect(p.x - 6, p.y - 4, q.x - p.x + 12, q.y - p.y + 8); }
+      c.setLineDash([]);
+      return;
+    }
+    const p1 = this.toView(a.p1), p2 = this.toView(a.p2);
+    c.beginPath(); c.moveTo(p1.x, p1.y); c.lineTo(p2.x, p2.y); c.stroke(); c.setLineDash([]);
+    for (const p of [p1, p2]) { c.beginPath(); c.arc(p.x, p.y, r, 0, Math.PI * 2); c.fillStyle = 'rgba(255,255,255,.9)'; c.fill(); c.strokeStyle = ACCENT; c.lineWidth = 2; c.stroke(); }
+  }
+
+  hitAnno(ip, vp) {
+    const list = this.doc.annotations || [];
+    const tol = (CAPS.mobile ? 16 : 8) / this.view.zoom;
+    for (let i = list.length - 1; i >= 0; i--) if (annoDistance(list[i], ip, this.annoBoxes) <= tol) return list[i];
+    return null;
   }
 
   drawMeasure(kind, p1, p2, cm) {
@@ -334,7 +364,19 @@ export class Editor {
       const hm = this.hitMeasureEnd(vp);
       if (hm) { this.drag = { type: 'measureEnd', ...hm, moved: false }; this.showLoupe(ip); return; }
     }
+    if (step === 3 && this.tool === 'arrow') { this.drag = { type: 'newArrow', a: newArrow(this.doc.bg, ip, ip, this.app.annoColor) }; return; }
+    if (step === 3 && this.tool === 'text') { this.drag = { type: 'textTap', p: ip, v0: vp }; return; }
     if (step === 3) {
+      const ca = this.app.currentAnno;
+      if (ca && ca.type === 'arrow') {
+        for (const end of ['p1', 'p2']) if (dist(this.toView(ca[end]), vp) <= this.hr) { this.drag = { type: 'annoEnd', a: ca, end, moved: false }; this.showLoupe(ca[end]); return; }
+      }
+      const ha = this.hitAnno(ip, vp);
+      if (ha && !this.hitHandle(vp)) {
+        this.app.selectAnno(ha);
+        this.drag = { type: 'annoMove', a: ha, start: ip, orig: JSON.parse(JSON.stringify(ha)), moved: false };
+        return;
+      }
       const hh = this.hitHandle(vp);
       if (hh) {
         const s = hh.s;
@@ -353,6 +395,7 @@ export class Editor {
       if (s) {
         const multi = e.ctrlKey || e.metaKey || e.shiftKey;
         const sel = this.app.selection;
+        if (this.app.currentAnno) this.app.selectAnno(null);
         if (multi) { sel.has(s.id) ? sel.delete(s.id) : sel.add(s.id); this.app.onSelectionChanged(); if (!sel.has(s.id)) return; }
         else if (!sel.has(s.id)) { sel.clear(); sel.add(s.id); this.app.onSelectionChanged(); }
         const group = this.doc.screens.filter((x) => sel.has(x.id));
@@ -388,6 +431,15 @@ export class Editor {
         let p = ip;
         if (e.shiftKey) p = Math.abs(ip.x - dr.p1.x) > Math.abs(ip.y - dr.p1.y) ? { x: ip.x, y: dr.p1.y } : { x: dr.p1.x, y: ip.y };
         dr.p2 = p; this.showLoupe(p);
+        break;
+      }
+      case 'newArrow': dr.a.p2 = ip; break;
+      case 'textTap': break;
+      case 'annoEnd': dr.a[dr.end] = ip; dr.moved = true; this.showLoupe(ip); break;
+      case 'annoMove': {
+        const d = sub(ip, dr.start);
+        if (dr.a.type === 'arrow') { dr.a.p1 = add(dr.orig.p1, d); dr.a.p2 = add(dr.orig.p2, d); } else dr.a.p = add(dr.orig.p, d);
+        dr.moved = true;
         break;
       }
       case 'pendingEnd': {
@@ -498,14 +550,20 @@ export class Editor {
     this.drag = null;
     this.hideLoupe();
     if (!dr) return;
-    if (dr.type === 'pan' && dr.clickEmpty && !dr.panned && this.app.selection.size) {
-      this.app.selection.clear(); this.app.onSelectionChanged();
+    if (dr.type === 'pan' && dr.clickEmpty && !dr.panned && (this.app.selection.size || this.app.currentAnno)) {
+      this.app.selection.clear(); this.app.selectAnno(null); this.app.onSelectionChanged();
     }
     if (dr.type === 'crop') {
       const w = Math.abs(dr.p1.x - dr.p2.x) * this.view.zoom, h = Math.abs(dr.p1.y - dr.p2.y) * this.view.zoom;
       if (!cancel && w > 10 && h > 10) this.setPending({ type: 'rect', kind: 'crop', p1: dr.p1, p2: dr.p2 });
     } else if (dr.type === 'newMeasure') {
       if (!cancel && dist(this.toView(dr.p1), this.toView(dr.p2)) > 8) this.setPending({ type: 'line', kind: dr.kind, p1: dr.p1, p2: dr.p2 });
+    } else if (dr.type === 'newArrow') {
+      this.app.setTool(null);
+      if (!cancel && dist(this.toView(dr.a.p1), this.toView(dr.a.p2)) > 12) this.app.addAnnotation(dr.a);
+    } else if (dr.type === 'textTap') {
+      this.app.setTool(null);
+      if (!cancel) this.app.placeText(dr.p);
     } else if (dr.type === 'pendingEnd') {
       this.app.onPendingChanged();
     } else if (dr.moved) {
@@ -518,6 +576,8 @@ export class Editor {
     if (CAPS.mobile || !this.doc.bg) return;
     let cur = 'grab';
     if (this.app.step === 1 && this.tool) cur = 'crosshair';
+    if (this.app.step === 3 && this.tool) cur = 'crosshair';
+    else if (this.app.step === 3 && this.hitAnno(this.toImg(vp.x, vp.y), vp)) cur = 'move';
     if (this.pending) cur = this.pendingPoints().some((q) => dist(this.toView(q), vp) <= this.hr * 1.4) ? 'move' : 'grab';
     if (this.app.step === 2) cur = this.tool ? 'crosshair' : this.hitMeasureEnd(vp) ? 'move' : 'grab';
     if (this.app.step === 3) {

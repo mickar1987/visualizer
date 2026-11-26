@@ -95,6 +95,14 @@ input:focus, select:focus { outline: 2px solid #3b6fd8; outline-offset: -1px; }
 .modal .body { padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
 .modal footer { padding: 10px 16px; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .modal .field { grid-template-columns: 130px 1fr auto; }
+.subbox { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.dimrow { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; }
+.dimrow select { padding: 5px 6px; }
+.swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.swatches button { width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 2px solid #555; }
+.swatches button.on { border-color: #fff; box-shadow: 0 0 0 2px var(--primary); }
+.col { display: flex; flex-direction: column; gap: 8px; }
+body.is-mobile .swatches button { width: 36px; height: 36px; }
 label.check { display: flex; gap: 8px; align-items: center; cursor: pointer; }
 label.check input { width: 17px; height: 17px; margin: 0; }
 .progress { height: 10px; border-radius: 5px; background: #111; overflow: hidden; }

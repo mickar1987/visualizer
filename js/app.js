@@ -15,6 +15,7 @@ import { $, $$, h, dialog, alertBox, confirmBox, promptNumber, progressBox, toas
 import * as store from './store.js';
 import { applyIcons } from './icons.js';
 import { MobileUI } from './mobile.js';
+import { ANNO_COLORS, newText, defaultSize } from './annotations.js';
 
 const ASPECTS = [['16:9', 16, 9], ['21:9', 21, 9], ['32:9', 32, 9], ['4:3', 4, 3], ['1:1', 1, 1]];
 const LS = {
@@ -35,6 +36,8 @@ class App {
     this.showMeasures = false;
     this.quote = null;
     this.quoteSel = 0;
+    this.selAnnoId = null;   // selected free arrow / text
+    this.annoColor = LS.get('viz.annoColor', '#ffd400');
     this.savedPos = 0;
     document.documentElement.lang = LANG;
     document.documentElement.dir = isRTL() ? 'rtl' : 'ltr';
@@ -132,6 +135,8 @@ class App {
       if (MOBILE) hint.textContent = t('גרור קו לאורך ה{0} הידוע', measureTitle(kind));
       if (kind === 'level') hint.textContent = t('קו ייחוס 1 מתוך 2: גרור קו לאורך משהו שאמור להיות אופקי (רצפה, תקרה, מדף)');
       if (kind === 'crop') hint.textContent = t('גרור מלבן על האזור שרוצים להשאיר');
+      if (kind === 'arrow') hint.textContent = t('גרור מתחילת החץ עד החוד שלו');
+      if (kind === 'text') hint.textContent = t('הקש במקום שבו יופיע הטקסט');
       hint.hidden = false;
       if (this.mobile) this.mobile.closeSheet();
     } else hint.hidden = true;
@@ -153,6 +158,7 @@ class App {
     this.renderMeasures();
     this.renderScreenList();
     this.renderQuote();
+    this.updateAnnoProps();
     this.updateProps();
     const hasVid = doc.screens.some((s) => !s.info_mode && s.media && doc.media.get(s.media)?.kind === 'video' && doc.media.get(s.media).el);
     $('#btnPlay').disabled = !hasVid;
@@ -199,7 +205,58 @@ class App {
     }
   }
 
+  get currentAnno() { return (this.doc.annotations || []).find((a) => a.id === this.selAnnoId) || null; }
+
+  selectAnno(a) {
+    this.selAnnoId = a ? a.id : null;
+    if (a) { this.selection.clear(); this.primary = null; }
+    this.updateUI();
+    this.editor.invalidate();
+  }
+
+  addAnnotation(a) {
+    this.doc.annotations.push(a);
+    this.selectAnno(a);
+    this.commit();
+  }
+
+  async placeText(p) {
+    const text = await promptText(t('טקסט על התמונה'), t('מה לכתוב?'), '');
+    if (!text) return;
+    this.addAnnotation(newText(this.doc.bg, p, text, this.annoColor));
+  }
+
+  deleteAnno() {
+    const a = this.currentAnno;
+    if (!a) return;
+    this.doc.annotations = this.doc.annotations.filter((x) => x !== a);
+    this.selAnnoId = null;
+    this.commit();
+    this.editor.invalidate();
+  }
+
+  /** Colour picker: a row of round swatches. */
+  swatches(el, current, onPick) {
+    el.replaceChildren(...ANNO_COLORS.map((c) => h('button', {
+      class: c === current ? 'on' : '', style: `background:${c}`, title: c, 'aria-label': c,
+      onclick: () => onPick(c),
+    })));
+  }
+
+  updateAnnoProps() {
+    const a = this.currentAnno, box = $('#annoProps');
+    box.hidden = !a || this.step !== 3;
+    if (!a) return;
+    $('#annoTextRow').hidden = a.type !== 'text';
+    if (a.type === 'text' && document.activeElement !== $('#annoText')) $('#annoText').value = a.text;
+    this.swatches($('#annoColors'), a.color, (c) => { a.color = c; this.annoColor = c; LS.set('viz.annoColor', c); this.commit(); this.editor.invalidate(); });
+    const pct = Math.round((a.size / defaultSize(this.doc.bg, a.type)) * 100);
+    if (document.activeElement !== $('#annoSize')) $('#annoSize').value = pct;
+    $('#lblAnnoSize').textContent = `${pct}%`;
+  }
+
   onSelectionChanged() {
+    if (this.selection.size) this.selAnnoId = null;
     if (!this.selection.has(this.primary)) this.primary = [...this.selection].pop() || null;
     this.updateUI();
     this.editor.invalidate();
@@ -227,6 +284,12 @@ class App {
     $('#lblContent').textContent = m ? (m.kind === 'video' ? '🎬 ' : '🖼 ') + m.name + (m.dormant ? t(' (סרטון - מוצג רק במחשב)') : '') : t('ללא תוכן');
     $('#btnClear').disabled = !m;
     const diag = Math.hypot(s.active_w, s.active_h) / 2.54;
+    const d = s.dim;
+    $('#dimW').checked = d.w; $('#dimWRes').checked = d.wRes; $('#dimWPos').value = d.wPos;
+    $('#dimH').checked = d.h; $('#dimHRes').checked = d.hRes; $('#dimHPos').value = d.hPos;
+    $('#dimWRes').disabled = $('#dimWPos').disabled = !d.w;
+    $('#dimHRes').disabled = $('#dimHPos').disabled = !d.h;
+    this.swatches($('#dimColors'), d.color, (c) => { s.dim.color = c; this.commit(); this.editor.invalidate(); });
     $('#lblSize').textContent = (s.model ? t('דגם: {0}', s.model) + '\n' : '') +
       t('גודל: {0} ס״מ\nאלכסון: ≈{1}"\nיחס (Aspect Ratio): {2}\nרזולוציה לתוכן: {3}', dims(s.active_w, s.active_h), diag.toFixed(0), aspectText(s.active_w, s.active_h), resolutionText(s.active_w, s.active_h, s.ledPitch(), s.quoteRes()));
   }
@@ -295,6 +358,24 @@ class App {
 
 
   bindProps() {
+    // dimension arrows on the selected screen
+    for (const [id, key, prop] of [['#dimW', 'w', 'checked'], ['#dimWRes', 'wRes', 'checked'], ['#dimWPos', 'wPos', 'value'],
+      ['#dimH', 'h', 'checked'], ['#dimHRes', 'hRes', 'checked'], ['#dimHPos', 'hPos', 'value']]) {
+      $(id).addEventListener('change', (e) => { const s = this.current; if (!s) return; s.dim[key] = e.target[prop]; this.commit(); this.editor.invalidate(); });
+    }
+    // free arrows / text
+    $('#btnAddArrow').addEventListener('click', () => this.setTool(this.editor.tool === 'arrow' ? null : 'arrow'));
+    $('#btnAddText').addEventListener('click', () => this.setTool(this.editor.tool === 'text' ? null : 'text'));
+    $('#btnAnnoDel').addEventListener('click', () => this.deleteAnno());
+    $('#annoText').addEventListener('input', (e) => { const a = this.currentAnno; if (a && e.target.value.trim()) { a.text = e.target.value; this.editor.invalidate(); } });
+    $('#annoText').addEventListener('change', () => this.commit());
+    $('#annoSize').addEventListener('input', (e) => {
+      const a = this.currentAnno; if (!a) return;
+      a.size = defaultSize(this.doc.bg, a.type) * e.target.value / 100;
+      $('#lblAnnoSize').textContent = `${e.target.value}%`;
+      this.editor.invalidate();
+    });
+    $('#annoSize').addEventListener('change', () => this.commit());
     const num = (id, fn) => {
       const el = $(id);
       el.addEventListener('input', () => { const v = parseFloat(el.value); if (isFinite(v) && this.current) { fn(this.current, v, el); this.editor.invalidate(); } });
@@ -331,7 +412,7 @@ class App {
       if (inField) return;
       if (this.step === 3) {
         if (mod && e.key.toLowerCase() === 'a') { e.preventDefault(); this.doc.screens.forEach((s) => this.selection.add(s.id)); this.onSelectionChanged(); }
-        if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); this.deleteScreens(); }
+        if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); if (this.currentAnno) this.deleteAnno(); else this.deleteScreens(); }
         if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); this.duplicateScreen(); }
         const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
         if (arrows[e.key] && this.selection.size) {
@@ -381,6 +462,7 @@ class App {
   undo() { if (this.doc.undo()) this.afterRestore(); }
   redo() { if (this.doc.redo()) this.afterRestore(); }
   afterRestore() {
+    if (!this.currentAnno) this.selAnnoId = null;
     const ids = new Set(this.doc.screens.map((s) => s.id));
     for (const id of [...this.selection]) if (!ids.has(id)) this.selection.delete(id);
     if (!ids.has(this.primary)) this.primary = [...this.selection].pop() || null;
@@ -460,6 +542,7 @@ class App {
     doc.bgId = id;
     for (const m of Object.values(doc.measures)) { m.p1 = applyM(M, m.p1); m.p2 = applyM(M, m.p2); }
     for (const s of doc.screens) { s.corners = s.corners.map((p) => applyM(M, p)); s.angle = normAngle(s.angle + dAngle); }
+    for (const a of doc.annotations) { if (a.type === 'arrow') { a.p1 = applyM(M, a.p1); a.p2 = applyM(M, a.p2); } else a.p = applyM(M, a.p); }
     this.editor.fitView();
   }
 

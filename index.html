@@ -122,10 +122,38 @@
           </select></label>
         <label class="field"><span data-t>בהירות:</span><input id="slBright" type="range" min="20" max="200" step="1"><i id="lblBright"></i></label>
         <div id="lblSize" class="info pre"></div>
+        <div id="dimBox" class="subbox">
+          <div class="box-title" data-t>מידות על ההדמיה</div>
+          <div class="dimrow">
+            <label class="check"><input id="dimW" type="checkbox"> <span data-t>חץ רוחב</span></label>
+            <label class="check"><input id="dimWRes" type="checkbox"> <span data-t>+ רזולוציה</span></label>
+            <select id="dimWPos"><option value="top" data-t>מעל המסך</option><option value="bottom" data-t>מתחת למסך</option></select>
+          </div>
+          <div class="dimrow">
+            <label class="check"><input id="dimH" type="checkbox"> <span data-t>חץ גובה</span></label>
+            <label class="check"><input id="dimHRes" type="checkbox"> <span data-t>+ רזולוציה</span></label>
+            <select id="dimHPos"><option value="right" data-t>מימין למסך</option><option value="left" data-t>משמאל למסך</option></select>
+          </div>
+          <div class="swatches" id="dimColors"></div>
+        </div>
         <div class="row wrap">
           <button id="btnReset" data-t>אפס ליחס לפי קנה המידה</button>
           <button id="btnDup" data-t>שכפל</button>
           <button id="btnDel" class="danger" data-t>מחק מסך</button>
+        </div>
+      </div>
+
+      <div id="annoBox" class="box desk-only">
+        <div class="box-title" data-t>חצים וכיתוב על התמונה</div>
+        <div class="row">
+          <button id="btnAddArrow" class="tool" data-tool="arrow" data-t>➚ חץ</button>
+          <button id="btnAddText" class="tool" data-tool="text" data-t>T טקסט</button>
+        </div>
+        <div id="annoProps" class="col" hidden>
+          <label class="field" id="annoTextRow"><span data-t>טקסט:</span><input id="annoText" type="text"><i></i></label>
+          <div class="swatches" id="annoColors"></div>
+          <label class="field"><span data-t>גודל:</span><input id="annoSize" type="range" min="30" max="300" step="5"><i id="lblAnnoSize"></i></label>
+          <button id="btnAnnoDel" class="danger" data-t>מחק</button>
         </div>
       </div>
 

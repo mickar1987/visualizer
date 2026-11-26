@@ -5,6 +5,8 @@ import { t } from './i18n.js';
 let uid = 1;
 export const newId = (p = 'id') => `${p}${Date.now().toString(36)}${(uid++).toString(36)}`;
 
+export const defaultDim = () => ({ w: false, wRes: false, wPos: 'top', h: false, hRes: false, hPos: 'right', color: '#ffd400' });
+
 export class Screen {
   constructor(name, activeW, activeH, bezel = 0) {
     this.id = newId('s');
@@ -23,6 +25,7 @@ export class Screen {
     this.res_for = null;
     this.quote_idx = null;
     this.media = null;         // media id
+    this.dim = defaultDim();   // dimension arrows drawn on the visualization
     this.corners = [{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }];
   }
   get total_w() { return this.active_w + 2 * this.bezel; }
@@ -63,6 +66,7 @@ export class Screen {
     const d = {};
     for (const k of ['id', 'name', 'active_w', 'active_h', 'bezel', 'fit', 'brightness', 'angle', 'custom', 'pitch',
       'info_mode', 'model', 'res_override', 'res_for', 'quote_idx', 'media']) d[k] = this[k];
+    d.dim = { ...this.dim };
     d.corners = this.corners.map((c) => [c.x, c.y]);
     return d;
   }
@@ -70,6 +74,7 @@ export class Screen {
     const s = new Screen(d.name, d.active_w, d.active_h, d.bezel);
     for (const k of Object.keys(d)) if (k !== 'corners') s[k] = d[k];
     s.corners = d.corners.map(([x, y]) => ({ x, y }));
+    s.dim = { ...defaultDim(), ...(d.dim || {}) };
     return s;
   }
 }
@@ -87,6 +92,7 @@ export class Doc {
     this.bgId = null;
     this.measures = {};       // kind -> {p1, p2, cm}
     this.screens = [];
+    this.annotations = [];    // free arrows / text on the photo
     this.projectName = '';
     this.history = [];
     this.hpos = -1;
@@ -101,13 +107,14 @@ export class Doc {
   }
 
   snapshot() {
-    return JSON.stringify({ bgId: this.bgId, measures: this.measures, screens: this.screens.map((s) => s.toDict()) });
+    return JSON.stringify({ bgId: this.bgId, measures: this.measures, screens: this.screens.map((s) => s.toDict()), annotations: this.annotations });
   }
   restore(json) {
     const st = JSON.parse(json);
     this.bgId = st.bgId;
     this.measures = st.measures;
     this.screens = st.screens.map(Screen.fromDict);
+    this.annotations = st.annotations || [];
   }
   commit() {
     const snap = this.snapshot();

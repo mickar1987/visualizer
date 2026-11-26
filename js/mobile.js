@@ -27,6 +27,7 @@ export class MobileUI {
       tools: { title: t('יישור וחיתוך'), el: $('#toolsBox') },
       scale: { title: t('קנה מידה'), el: h('div', { class: 'col' }, $('#measureList'), $('#lblScale')) },
       props: { title: t('מסך נבחר'), el: h('div', { class: 'col' }, h('div', { class: 'row wrap' }, $('#btnLink'), $('#btnMagnet')), $('#props')) },
+      anno: { title: t('חץ / טקסט'), el: $('#annoProps') },
     };
     for (const s of Object.values(this.sections)) { s.el.hidden = true; this.sheetBody.append(s.el); }
     this.mode = null;
@@ -94,6 +95,8 @@ export class MobileUI {
     if (step !== 1 && this.mode === 'tools') this.closeSheet();
     if (step !== 2 && this.mode === 'scale') this.closeSheet();
     if ((step !== 3 || !sel) && this.mode === 'props') this.closeSheet();
+    const anno = app.currentAnno;
+    if ((step !== 3 || !anno) && this.mode === 'anno') this.closeSheet();
 
     // instruction line
     let hint;
@@ -101,6 +104,7 @@ export class MobileUI {
     else if (step === 1) hint = bg ? t('יישר או חתוך אם צריך, ואז "הבא"') : t('צלם או בחר תמונה של המקום');
     else if (step === 2) hint = sc ? t('קנה המידה מוכן. אפשר לדייק את הקצוות, ואז "הבא"') : t('סמן קו על דבר שמידתו ידועה (דלת, חלון)');
     else if (!doc.screens.length) hint = t('הוסף מסך');
+    else if (anno) hint = anno.type === 'arrow' ? t('גרור להזזה · קצוות החץ לשינוי') : t('גרור להזזה');
     else if (!sel) hint = t('הקש על מסך כדי לבחור אותו');
     else hint = t('גרור להזזה · פינות = פרספקטיבה · ידית ירוקה = סיבוב');
     this.hint.textContent = hint;
@@ -128,6 +132,10 @@ export class MobileUI {
       B.push(this.btn('ruler_v', t('גובה ידוע'), () => app.setTool('h')));
       if (Object.keys(doc.measures).length) B.push(this.btn('sliders', t('ערכים'), () => this.openSheet('scale'), { on: this.mode === 'scale' }));
       B.push(this.btn('next', t('הבא'), () => app.goToStep(3), { primary: true, disabled: !sc }));
+    } else if (step === 3 && anno) {
+      B.push(this.btn('sliders', t('הגדרות'), () => this.openSheet('anno'), { on: this.mode === 'anno' }));
+      B.push(this.btn('trash', t('מחק'), () => app.deleteAnno()));
+      B.push(this.btn('check', t('סיום'), () => app.selectAnno(null), { primary: true }));
     } else if (sel) {
       B.push(this.btn('image', t('תוכן'), () => app.loadContentFor(sel)));
       B.push(this.btn('sliders', t('הגדרות'), () => this.openSheet('props'), { on: this.mode === 'props' }));
@@ -136,6 +144,8 @@ export class MobileUI {
       B.push(this.btn('check', t('סיום'), () => { app.selection.clear(); app.onSelectionChanged(); }, { primary: true }));
     } else {
       B.push(this.btn('plus', t('מסך'), () => app.addScreenDialog(), { primary: true }));
+      B.push(this.btn('arrow', t('חץ'), () => app.setTool('arrow'), { disabled: !doc.bg }));
+      B.push(this.btn('text', t('טקסט'), () => app.setTool('text'), { disabled: !doc.bg }));
       B.push(this.btn('share', t('ייצוא'), () => app.exportImageFlow(), { disabled: !doc.screens.length }));
       B.push(this.btn('save', t('שמור'), () => app.saveProjectLocal()));
     }

@@ -32,7 +32,7 @@ export async function saveProject(doc, quote) {
   const proj = {
     app: 'ctv-visualizer-web', version: 1, saved: new Date().toISOString(), name: doc.projectName || '',
     background: bg ? { file: 'background.jpg', name: bg.name, w: bg.w, h: bg.h, valid: bg.valid || null } : null,
-    measures: doc.measures, screens: doc.screens.map((s) => s.toDict()), media, quote: quote || null,
+    measures: doc.measures, screens: doc.screens.map((s) => s.toDict()), annotations: doc.annotations || [], media, quote: quote || null,
   };
   zip.file('project.json', JSON.stringify(proj, null, 1));
   return zip.generateAsync({ type: 'blob', mimeType: 'application/zip', compression: 'STORE' });
@@ -78,6 +78,8 @@ export async function openProject(doc, blob, onFrame) {
   const measures = {};
   for (const [kk, m] of Object.entries(proj.measures || {})) measures[kk] = { p1: sc(m.p1), p2: sc(m.p2), cm: m.cm };
   doc.measures = measures;
+  doc.annotations = (proj.annotations || []).map((a) => (a.type === 'arrow'
+    ? { ...a, p1: sc(a.p1), p2: sc(a.p2), size: a.size * k } : { ...a, p: sc(a.p), size: a.size * k }));
   doc.screens = (proj.screens || []).map((d) => {
     const s = Screen.fromDict(d);
     s.corners = s.corners.map(sc);

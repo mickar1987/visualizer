@@ -2,6 +2,7 @@
 import { Renderer } from './renderer.js';
 import { buildScene } from './editor.js';
 import { t } from './i18n.js';
+import { drawAllAnnotations, hasAnnotations } from './annotations.js';
 
 function loadScript(src) {
   return new Promise((res, rej) => {
@@ -29,7 +30,16 @@ export async function exportImage(doc, { type = 'image/jpeg', quality = 0.92 } =
   const bg = doc.bg;
   const { cv, r, draw } = renderComposite(doc, bg.w, bg.h);
   draw();
-  const blob = await canvasToBlob(cv, type, quality);
+  let out = cv;
+  if (hasAnnotations(doc)) {
+    // dimension arrows / free arrows / text on top (same drawing as on screen)
+    out = document.createElement('canvas');
+    out.width = bg.w; out.height = bg.h;
+    const c = out.getContext('2d');
+    c.drawImage(cv, 0, 0);
+    drawAllAnnotations(c, doc);
+  }
+  const blob = await canvasToBlob(out, type, quality);
   r.destroy();
   return blob;
 }
@@ -110,6 +120,17 @@ export async function exportVideo(doc, opts, progress) {
   const out = document.createElement('canvas');
   out.width = W; out.height = H;
   const oc = out.getContext('2d');
+  // annotations are static: draw them once, then lay them over every frame
+  let annoLayer = null, after = glc;
+  if (hasAnnotations(doc)) {
+    annoLayer = document.createElement('canvas');
+    annoLayer.width = W; annoLayer.height = H;
+    const ac = annoLayer.getContext('2d');
+    ac.setTransform(W / bg.w, 0, 0, H / bg.h, 0, 0);
+    drawAllAnnotations(ac, doc);
+    after = document.createElement('canvas');
+    after.width = W; after.height = H;
+  }
   // the photo without screens ("before")
   const before = document.createElement('canvas');
   before.width = W; before.height = H;
@@ -129,10 +150,11 @@ export async function exportVideo(doc, opts, progress) {
         await Promise.all(vids.map((m) => seek(m.el, m.duration > 0 ? (tv % m.duration) : 0)));
         draw({ frameTick: i });
         for (const m of vids) m.version++;
-        oc.drawImage(glc, 0, 0);
+        if (annoLayer) { const ac = after.getContext('2d'); ac.drawImage(glc, 0, 0); ac.drawImage(annoLayer, 0, 0); }
+        oc.drawImage(after, 0, 0);
         if (opts.beforeAfter) {
           const p = ease(tv / wipe);
-          if (p < 1) wipeOver(oc, before, glc, p, W, H);
+          if (p < 1) wipeOver(oc, before, after, p, W, H);
         }
       }
       const frame = new VideoFrame(out, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) });
