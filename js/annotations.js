@@ -85,7 +85,7 @@ function drawDim(ctx, a, b, ctr, label, color, base) {
   // label beyond the line, along it, never upside down
   let ang = Math.atan2(dir.y, dir.x);
   if (ang > Math.PI / 2 || ang < -Math.PI / 2) ang += Math.PI;
-  const at = add(mul(add(A, B), 0.5), mul(n, base * 0.75));
+  const at = add(mul(add(A, B), 0.5), mul(n, base * 1.05)); // clear gap between the arrow and the text
   haloText(ctx, label, at.x, at.y, base, color, ang);
 }
 
