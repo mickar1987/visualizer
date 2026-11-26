@@ -314,4 +314,6 @@ export const EN = {
   "גרור את הפינות לדיוק, ואז \"אישור\"": "Drag the corners to fine-tune, then \"Confirm\"",
   "גרור את הנקודות לדיוק, ואז \"אישור\"": "Drag the points to fine-tune, then \"Confirm\"",
   "✓ אישור": "✓ Confirm",
+  "שמור בקבצים / OneDrive": "Save to Files / OneDrive",
+  "בתפריט השיתוף בוחרים \"שמור בקבצים\" ואז את התיקייה (גם תיקייה ב-OneDrive).": "In the share menu choose \"Save to Files\", then the folder (a OneDrive folder works too).",
 };

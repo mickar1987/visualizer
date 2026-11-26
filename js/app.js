@@ -8,7 +8,7 @@ import { rotateBackground, cropBackground, largestValidRect, meanLineAngle, appl
 import { resolutionText } from './infocard.js';
 import { addBackground, addMedia, isVideoFile, isImageFile } from './media.js';
 import { exportImage, exportVideo, videoExportSupported } from './exporter.js';
-import { saveProject, openProject, PROJECT_EXT, saveProjectImage, containsProject } from './project.js';
+import { saveProject, openProject, PROJECT_EXT, containsProject } from './project.js';
 import * as OD from './onedrive.js';
 import { parseRequest, requestFromUrl, quoteTitle, quoteLabel } from './quote.js';
 import { $, $$, h, dialog, alertBox, confirmBox, promptNumber, progressBox, toast, pickFile, promptText } from './ui.js';
@@ -841,23 +841,23 @@ class App {
 
   /** Phone: the project travels as a photo (JPG with the project inside) so OneDrive / WhatsApp show up,
    *  or as a .zip for "Save to Files". */
-  async saveProjectPhone(zipBlob) {
-    const base = safeName(this.doc.projectName) || this.baseName();
-    const canFiles = (f) => { try { return !!(navigator.canShare && navigator.canShare({ files: [f] })); } catch { return false; } };
-    const zipFile = new File([zipBlob], `${base}.zip`, { type: 'application/zip' });
-    const imgFile = new File([await saveProjectImage(this.doc, this.quote && this.quote.raw)], `${base}.jpg`, { type: 'image/jpeg' });
-    const buttons = [{ label: t('הורד'), value: 'local' }];
-    if (canFiles(zipFile)) buttons.push({ label: t('קובץ ZIP (שמור בקבצים)'), value: 'zip' });
-    if (canFiles(imgFile)) buttons.push({ label: t('OneDrive · WhatsApp (כתמונה)'), value: 'img', primary: true });
-    else buttons[0].primary = true;
+  /** Phone: save the project (.vizproj) - "Save to Files" from the share menu (OneDrive is a location there), or download. */
+  async saveProjectPhone(blob) {
+    const name = this.projectFilename();
+    let file = null;
+    for (const type of ['application/octet-stream', 'application/zip']) {
+      const f = new File([blob], name, { type });
+      try { if (navigator.canShare && navigator.canShare({ files: [f] })) { file = f; break; } } catch { /* next */ }
+    }
+    const buttons = [{ label: t('הורד'), value: 'local', primary: !file }];
+    if (file) buttons.push({ label: t('שמור בקבצים / OneDrive'), value: 'share', primary: true });
     const body = h('div', { style: 'display:flex;flex-direction:column;gap:8px' },
-      h('div', {}, t('"כתמונה": נשמרת תמונת ההדמיה, והפרויקט המלא נמצא בתוכה. כדי להמשיך לעבוד פותחים אותה ב"פתח פרויקט" (בטלפון או במחשב).')),
-      h('p', { class: 'hint' }, t('שמור ב-OneDrive ולא באפליקציית התמונות - התמונות עלולות לשמור רק את התמונה בלי הפרויקט.')));
+      h('div', {}, `${name}  (${(blob.size / 1048576).toFixed(1)} MB)`),
+      file ? h('p', { class: 'hint' }, t('בתפריט השיתוף בוחרים "שמור בקבצים" ואז את התיקייה (גם תיקייה ב-OneDrive).')) : null);
     const choice = await dialog({ title: t('שמירת פרויקט'), body, buttons, dismiss: null });
-    if (choice === 'local') return saveLocal(zipBlob, this.projectFilename());
-    const f = choice === 'img' ? imgFile : choice === 'zip' ? zipFile : null;
-    if (!f) return false;
-    try { await navigator.share({ files: [f] }); return true; } catch (e) {
+    if (choice === 'local') return saveLocal(blob, name);
+    if (choice !== 'share') return false;
+    try { await navigator.share({ files: [file] }); return true; } catch (e) {
       if (e && e.name !== 'AbortError') alertBox(t('שמירת פרויקט'), t('השיתוף נכשל: {0}', e.message || e.name));
       return false;
     }

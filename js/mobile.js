@@ -136,7 +136,7 @@ export class MobileUI {
       B.push(this.btn('check', t('סיום'), () => { app.selection.clear(); app.onSelectionChanged(); }, { primary: true }));
     } else {
       B.push(this.btn('plus', t('מסך'), () => app.addScreenDialog(), { primary: true }));
-      B.push(this.btn('share', t('ייצוא'), () => app.mobileExportMenu(), { disabled: !doc.screens.length }));
+      B.push(this.btn('share', t('ייצוא'), () => app.exportImageFlow(), { disabled: !doc.screens.length }));
       B.push(this.btn('save', t('שמור'), () => app.saveProjectLocal()));
     }
     this.bar.replaceChildren(...B);
