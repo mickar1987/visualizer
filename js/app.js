@@ -13,6 +13,8 @@ import * as OD from './onedrive.js';
 import { parseRequest, requestFromUrl, quoteTitle, quoteLabel } from './quote.js';
 import { $, $$, h, dialog, alertBox, confirmBox, promptNumber, progressBox, toast, pickFile, promptText } from './ui.js';
 import * as store from './store.js';
+import { applyIcons } from './icons.js';
+import { MobileUI } from './mobile.js';
 
 const ASPECTS = [['16:9', 16, 9], ['21:9', 21, 9], ['32:9', 32, 9], ['4:3', 4, 3], ['1:1', 1, 1]];
 const LS = {
@@ -41,8 +43,10 @@ class App {
     document.body.classList.toggle('caps-quote', CAPS.quote);
     document.body.classList.toggle('caps-cloud', OD.configured());
     translateDom();
+    applyIcons();
     document.title = t('הדמיה למסכים');
     this.editor = new Editor(this);
+    this.mobile = MOBILE ? new MobileUI(this) : null;
     this.bind();
     this.doc.commit();
     this.savedPos = this.doc.hpos;
@@ -127,8 +131,9 @@ class App {
       if (kind === 'level') hint.textContent = t('קו ייחוס 1 מתוך 2: גרור קו לאורך משהו שאמור להיות אופקי (רצפה, תקרה, מדף)');
       if (kind === 'crop') hint.textContent = t('גרור מלבן על האזור שרוצים להשאיר');
       hint.hidden = false;
-      if (MOBILE) this.openSheet(false);
+      if (this.mobile) this.mobile.closeSheet();
     } else hint.hidden = true;
+    if (this.mobile) this.mobile.refresh();
   }
 
   // ------------------------------------------------------------------ UI refresh
@@ -153,9 +158,7 @@ class App {
     $('#btnExpVid').disabled = !bg;
     $('#btnLink').classList.toggle('on', this.linkCorners);
     $('#btnMagnet').classList.toggle('on', this.magnet);
-    $('#mbSheet').textContent = this.step === 3 && this.selection.size ? t('⚙ מסך נבחר') : t('☰ אפשרויות');
-    $('#mbAdd').disabled = !sc;
-    $('#mbExport').disabled = !bg;
+    if (this.mobile) this.mobile.refresh();
   }
 
   renderMeasures() {
@@ -280,17 +283,12 @@ class App {
     on('#btnSaveCloud', 'click', () => this.saveProjectCloud());
     this.bindProps();
     // mobile
-    on('#mbSheet', 'click', () => this.openSheet(!$('#panel').classList.contains('open')));
-    on('#sheetGrip', 'click', () => this.openSheet(false));
-    on('#mbAdd', 'click', () => { if (this.step !== 3) this.goToStep(3); if (this.step === 3) this.addScreenDialog(); });
-    on('#mbExport', 'click', () => this.mobileExportMenu());
     this.bindKeys();
     this.bindDrop();
     window.addEventListener('beforeunload', (e) => { if (this.dirty && this.doc.bg) { store.autosaveNow(this); e.preventDefault(); e.returnValue = ''; } });
     document.addEventListener('visibilitychange', () => { if (document.hidden && this.doc.bg) store.autosaveNow(this); });
   }
 
-  openSheet(open) { $('#panel').classList.toggle('open', open); }
 
   bindProps() {
     const num = (id, fn) => {
@@ -463,6 +461,7 @@ class App {
     this.editor.invalidate();
     if (this.levelLines.length < 2) {
       $('#toolHint').textContent = t('קו ייחוס 2 מתוך 2: גרור קו נוסף שאמור להיות אופקי');
+      if (this.mobile) this.mobile.refresh();
       return;
     }
     const lines = this.levelLines;
@@ -536,8 +535,8 @@ class App {
     this.doc.screens.push(s);
     this.select(s);
     this.commit();
-    if (MOBILE) this.openSheet(false);
-    this.setStatus(t('גרור את המסך למקומו. פינות = פרספקטיבה, ידית ירוקה = סיבוב.'), true);
+    if (this.mobile) this.mobile.closeSheet();
+    this.setStatus(t('גרור את המסך למקומו. פינות = פרספקטיבה, ידית ירוקה = סיבוב.'));
   }
 
   select(s) { this.selection.clear(); this.selection.add(s.id); this.primary = s.id; this.onSelectionChanged(); }
