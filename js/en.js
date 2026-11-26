@@ -311,4 +311,7 @@ export const EN = {
   "התמונה הזו כוללת פרויקט הדמיה שמור.\nלפתוח את הפרויקט (עם המסכים) או להשתמש בה רק כתמונה מהשטח?": "This photo contains a saved visualization project.\nOpen the project (with the screens), or use it only as a site photo?",
   "פתח פרויקט": "Open project",
   "רק תמונה": "Photo only",
+  "גרור את הפינות לדיוק, ואז \"אישור\"": "Drag the corners to fine-tune, then \"Confirm\"",
+  "גרור את הנקודות לדיוק, ואז \"אישור\"": "Drag the points to fine-tune, then \"Confirm\"",
+  "✓ אישור": "✓ Confirm",
 };

@@ -58,6 +58,7 @@ export class Editor {
     this.renderer = new Renderer(this.gl);
     this.view = { zoom: 1, x: 0, y: 0 }; // image -> CSS px
     this.pointers = new Map();
+    this.pending = null;     // drawn line / crop frame waiting for the user's confirmation
     this.drag = null;
     this.tool = null;        // 'w' | 'h' while drawing a scale line
     this.dirty = true;
@@ -133,6 +134,7 @@ export class Editor {
     if (step === 1) for (const [a, b] of this.app.levelLines || []) this.drawMeasure('level', a, b, null);
     if (this.drag && this.drag.type === 'newMeasure') this.drawMeasure(this.drag.kind, this.drag.p1, this.drag.p2, null);
     if (this.drag && this.drag.type === 'crop') this.drawCrop(this.drag.p1, this.drag.p2);
+    if (this.pending) this.drawPending();
     if (step === 3) {
       const sel = this.app.selection;
       for (const s of this.doc.screens) {
@@ -158,6 +160,30 @@ export class Editor {
     const w = c.measureText(label).width + 12;
     c.fillStyle = 'rgba(0,0,0,.75)'; c.fillRect(m.x - w / 2, m.y - 26, w, 20);
     c.fillStyle = col; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(label, m.x, m.y - 16);
+  }
+
+  /** Points of the pending shape that can be dragged (line: 2 ends, rect: 4 corners). */
+  pendingPoints() {
+    const p = this.pending;
+    if (!p) return [];
+    if (p.type === 'line') return [p.p1, p.p2];
+    return [p.p1, { x: p.p2.x, y: p.p1.y }, p.p2, { x: p.p1.x, y: p.p2.y }];
+  }
+
+  setPending(p) { this.pending = p; this.app.onPendingChanged(); this.invalidate(); }
+
+  drawPending() {
+    const p = this.pending, c = this.octx;
+    if (p.type === 'line') this.drawMeasure(p.kind, p.p1, p.p2, null);
+    else this.drawCrop(p.p1, p.p2);
+    const r = CAPS.mobile ? 13 : 8;
+    for (const q of this.pendingPoints()) {
+      const v = this.toView(q);
+      c.beginPath(); c.arc(v.x, v.y, r, 0, Math.PI * 2);
+      c.fillStyle = 'rgba(255,212,0,.25)'; c.fill();
+      c.lineWidth = 2.5; c.strokeStyle = ACCENT; c.stroke();
+      c.beginPath(); c.arc(v.x, v.y, 2.5, 0, Math.PI * 2); c.fillStyle = ACCENT; c.fill();
+    }
   }
 
   drawCrop(p1, p2) {
@@ -288,6 +314,19 @@ export class Editor {
     const panBtn = e.button === 1 || e.button === 2 || this.app.spaceDown;
     if (panBtn) { this.drag = { type: 'pan', v0: vp, view0: { ...this.view } }; return; }
 
+    if (this.pending) {
+      const pts = this.pendingPoints();
+      const R = this.hr * 1.4;
+      let best = -1, bd = Infinity;
+      pts.forEach((q, i) => { const d = dist(this.toView(q), vp); if (d < bd) { bd = d; best = i; } });
+      if (best >= 0 && bd <= R) {
+        this.drag = { type: 'pendingEnd', idx: best, off: sub(pts[best], ip) };
+        this.showLoupe(pts[best]);
+        return;
+      }
+      this.drag = { type: 'pan', v0: vp, view0: { ...this.view } };
+      return;
+    }
     if (step === 1 && this.tool === 'level') { this.drag = { type: 'newMeasure', kind: 'level', p1: ip, p2: ip }; this.showLoupe(ip); return; }
     if (step === 1 && this.tool === 'crop') { const q = this.clampImg(ip); this.drag = { type: 'crop', p1: q, p2: q }; this.showLoupe(q); return; }
     if (step === 2) {
@@ -349,6 +388,20 @@ export class Editor {
         let p = ip;
         if (e.shiftKey) p = Math.abs(ip.x - dr.p1.x) > Math.abs(ip.y - dr.p1.y) ? { x: ip.x, y: dr.p1.y } : { x: dr.p1.x, y: ip.y };
         dr.p2 = p; this.showLoupe(p);
+        break;
+      }
+      case 'pendingEnd': {
+        const p = this.pending;
+        let q = add(ip, dr.off);
+        if (p.type === 'rect') {
+          q = this.clampImg(q);
+          // corners: 0 = p1, 1 = (p2.x, p1.y), 2 = p2, 3 = (p1.x, p2.y)
+          if (dr.idx === 0) p.p1 = q;
+          else if (dr.idx === 2) p.p2 = q;
+          else if (dr.idx === 1) { p.p2 = { x: q.x, y: p.p2.y }; p.p1 = { x: p.p1.x, y: q.y }; }
+          else { p.p1 = { x: q.x, y: p.p1.y }; p.p2 = { x: p.p2.x, y: q.y }; }
+        } else if (dr.idx === 0) p.p1 = q; else p.p2 = q;
+        this.showLoupe(q);
         break;
       }
       case 'crop': {
@@ -449,15 +502,12 @@ export class Editor {
       this.app.selection.clear(); this.app.onSelectionChanged();
     }
     if (dr.type === 'crop') {
-      this.app.setTool(null);
       const w = Math.abs(dr.p1.x - dr.p2.x) * this.view.zoom, h = Math.abs(dr.p1.y - dr.p2.y) * this.view.zoom;
-      if (!cancel && w > 10 && h > 10) this.app.onCropDrawn(dr.p1, dr.p2);
-    } else if (dr.type === 'newMeasure' && dr.kind === 'level') {
-      if (!cancel && dist(this.toView(dr.p1), this.toView(dr.p2)) > 8) this.app.onLevelLine(dr.p1, dr.p2);
+      if (!cancel && w > 10 && h > 10) this.setPending({ type: 'rect', kind: 'crop', p1: dr.p1, p2: dr.p2 });
     } else if (dr.type === 'newMeasure') {
-      const tool = this.tool;
-      this.app.setTool(null);
-      if (!cancel && dist(this.toView(dr.p1), this.toView(dr.p2)) > 8) this.app.onMeasureDrawn(tool, dr.p1, dr.p2);
+      if (!cancel && dist(this.toView(dr.p1), this.toView(dr.p2)) > 8) this.setPending({ type: 'line', kind: dr.kind, p1: dr.p1, p2: dr.p2 });
+    } else if (dr.type === 'pendingEnd') {
+      this.app.onPendingChanged();
     } else if (dr.moved) {
       this.app.onEdited(dr.type === 'measureEnd');
     }
@@ -468,6 +518,7 @@ export class Editor {
     if (CAPS.mobile || !this.doc.bg) return;
     let cur = 'grab';
     if (this.app.step === 1 && this.tool) cur = 'crosshair';
+    if (this.pending) cur = this.pendingPoints().some((q) => dist(this.toView(q), vp) <= this.hr * 1.4) ? 'move' : 'grab';
     if (this.app.step === 2) cur = this.tool ? 'crosshair' : this.hitMeasureEnd(vp) ? 'move' : 'grab';
     if (this.app.step === 3) {
       const hh = this.hitHandle(vp);

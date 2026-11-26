@@ -96,7 +96,10 @@ export class MobileUI {
 
     // action bar
     const B = [];
-    if (tool) {
+    if (app.editor.pending) {
+      B.push(this.btn('close', t('ביטול'), () => app.cancelPending()));
+      B.push(this.btn('check', t('אישור'), () => app.confirmPending(), { primary: true }));
+    } else if (tool) {
       B.push(this.btn('close', t('ביטול'), () => app.setTool(null)));
     } else if (step === 1) {
       if (!bg) {

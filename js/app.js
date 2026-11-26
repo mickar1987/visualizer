@@ -120,6 +120,8 @@ class App {
   }
 
   setTool(kind) {
+    this.editor.pending = null;
+    $('#pendingBar').hidden = true;
     this.editor.tool = kind;
     this.editor && this.editor.invalidate();
     $$('.tool').forEach((b) => b.classList.toggle('on', b.dataset.tool === kind));
@@ -253,6 +255,8 @@ class App {
     on('#btnRotL', 'click', () => this.rotateBg(-90));
     on('#btnRotR', 'click', () => this.rotateBg(90));
     on('#btnRotAny', 'click', () => this.rotateAngleDialog());
+    on('#btnPendOk', 'click', () => this.confirmPending());
+    on('#btnPendCancel', 'click', () => this.cancelPending());
     on('#btnLevel', 'click', () => this.setTool(this.editor.tool === 'level' ? null : 'level'));
     on('#btnCrop', 'click', () => this.setTool(this.editor.tool === 'crop' ? null : 'crop'));
     on('#btnAutoCrop', 'click', () => this.autoCrop());
@@ -338,6 +342,8 @@ class App {
           clearTimeout(this._nudge); this._nudge = setTimeout(() => this.commit(), 400);
         }
       }
+      if (this.editor.pending && e.key === 'Enter') { e.preventDefault(); this.confirmPending(); return; }
+      if (this.editor.pending && e.key === 'Escape') { this.cancelPending(); return; }
       if (e.key === 'Escape') { this.setTool(null); this.selection.clear(); this.onSelectionChanged(); }
     });
     document.addEventListener('keyup', (e) => { if (e.key === ' ') this.spaceDown = false; });
@@ -410,6 +416,42 @@ class App {
     } catch (e) {
       alertBox(t('טעינת תמונה'), t('לא ניתן לפתוח את התמונה:\n{0}', e.message || e));
     }
+  }
+
+  /** A line / crop frame was drawn (or one of its points moved): wait for "Confirm". */
+  onPendingChanged() {
+    const p = this.editor.pending;
+    $('#pendingBar').hidden = !p || MOBILE;
+    if (p) $('#toolHint').textContent = p.type === 'rect' ? t('גרור את הפינות לדיוק, ואז "אישור"') : t('גרור את הנקודות לדיוק, ואז "אישור"');
+    if (this.mobile) this.mobile.refresh();
+  }
+
+  confirmPending() {
+    const p = this.editor.pending;
+    if (!p) return;
+    this.editor.pending = null;
+    $('#pendingBar').hidden = true;
+    this.editor.invalidate();
+    if (p.kind === 'level') return this.onLevelLine(p.p1, p.p2);
+    this.setTool(null);
+    if (p.kind === 'crop') return this.onCropDrawn(p.p1, p.p2);
+    return this.onMeasureDrawn(p.kind, p.p1, p.p2);
+  }
+
+  /** Throw the drawn shape away; the tool stays on so it can be drawn again. */
+  cancelPending() {
+    if (!this.editor.pending) return;
+    this.editor.pending = null;
+    $('#pendingBar').hidden = true;
+    const kind = this.editor.tool;
+    const keepLines = this.levelLines || [];
+    this.setTool(kind);
+    if (kind === 'level') {
+      this.levelLines = keepLines;
+      if (keepLines.length) $('#toolHint').textContent = t('קו ייחוס 2 מתוך 2: גרור קו נוסף שאמור להיות אופקי');
+      if (this.mobile) this.mobile.refresh();
+    }
+    this.editor.invalidate();
   }
 
   /** New background from rotate/crop: move measures and screens along (M = old -> new). */
@@ -529,7 +571,7 @@ class App {
     const body = h('div', { style: 'display:flex;flex-direction:column;gap:8px' }, field(t('שם:'), name), field(t('הגדרת גודל:'), mode), pDiag, pCm, field(t('כיוון:'), orient), field(t('מסגרת:'), bezel, t('ס״מ')), info);
     body.addEventListener('input', refresh); body.addEventListener('change', refresh);
     refresh();
-    const ok = await dialog({ title: t('הוספת מסך'), body, dismiss: false, buttons: [{ label: t('ביטול'), value: false }, { label: t('הוסף'), value: true, primary: true }] });
+    const ok = await dialog({ title: t('הוספת מסך'), body, dismiss: false, autofocus: !MOBILE, buttons: [{ label: t('ביטול'), value: false }, { label: t('הוסף'), value: true, primary: true }] });
     if (!ok) return;
     LS.set('viz.addScreen', { mode: mode.value, diag: diag.value, aspect: aspect.value, w: wcm.value, h: hcm.value, pitch: pitch.value, orient: orient.value, bezel: bezel.value });
     const v = values();

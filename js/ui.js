@@ -23,7 +23,7 @@ export function h(tag, attrs = {}, ...kids) {
  * dialog({title, body, buttons:[{label, value, primary, danger}], dismiss}) -> Promise(value)
  * A button may have validate(): returning false keeps the dialog open.
  */
-export function dialog({ title, body, buttons = [{ label: t('אישור'), value: true, primary: true }], dismiss = null, cls = '' }) {
+export function dialog({ title, body, buttons = [{ label: t('אישור'), value: true, primary: true }], dismiss = null, cls = '', autofocus = true }) {
   return new Promise((resolve) => {
     const back = h('div', { class: 'modal-back' });
     const close = (v) => { back.remove(); document.removeEventListener('keydown', onKey, true); resolve(v); };
@@ -46,8 +46,13 @@ export function dialog({ title, body, buttons = [{ label: t('אישור'), value
     };
     document.addEventListener('keydown', onKey, true);
     document.getElementById('modalRoot').append(back);
-    const f = m.querySelector('input, select');
-    if (f) setTimeout(() => { f.focus(); if (f.select) f.select(); }, 30);
+    // Focus right away (still inside the user's tap) - phones open the keyboard only then.
+    // The current value is selected, so typing replaces it.
+    const f = autofocus ? m.querySelector('input:not([type=checkbox]):not([type=range]), textarea') : null;
+    if (f) {
+      try { f.focus({ preventScroll: true }); f.select && f.select(); } catch { /* ignore */ }
+      setTimeout(() => { if (document.activeElement !== f) f.focus(); try { f.select(); } catch { /* ignore */ } }, 60);
+    }
   });
 }
 
@@ -59,16 +64,18 @@ export const confirmBox = (title, text, yes = t('כן'), no = t('לא')) => dial
 });
 
 export async function promptNumber(title, label, value, unit = '', min = 0.1) {
-  const inp = h('input', { type: 'number', step: '1', min, value: String(value), inputmode: 'decimal' });
+  // text + decimal keypad (a number field can't have its value selected on iPhone)
+  const inp = h('input', { type: 'text', value: String(value), inputmode: 'decimal', autocomplete: 'off', enterkeyhint: 'done', style: 'direction:ltr;text-align:left' });
+  const num = () => parseFloat(String(inp.value).replace(',', '.'));
   const ok = await dialog({
     title, dismiss: false,
     body: [h('div', {}, label), h('label', { class: 'field' }, h('span'), inp, h('i', {}, unit))],
     buttons: [{ label: t('ביטול'), value: false }, {
       label: t('אישור'), value: true, primary: true,
-      validate: () => { const v = parseFloat(inp.value); return isFinite(v) && v >= min; },
+      validate: () => { const v = num(); return isFinite(v) && v >= min; },
     }],
   });
-  return ok ? parseFloat(inp.value) : null;
+  return ok ? num() : null;
 }
 
 export async function promptText(title, label, value) {
