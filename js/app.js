@@ -361,7 +361,7 @@ class App {
       e.preventDefault(); st.classList.remove('dragover');
       const f = e.dataTransfer.files[0];
       if (!f) return;
-      if (f.name.toLowerCase().endsWith(PROJECT_EXT)) return this.openProjectBlob(f, f.name);
+      if (f.name.toLowerCase().endsWith(PROJECT_EXT) || f.name.toLowerCase().endsWith('.zip')) return this.openProjectBlob(f, f.name);
       if (f.name.toLowerCase().endsWith('.json') && CAPS.quote) return this.openQuoteFile(f);
       if (this.step === 3) {
         const p = this.editor.evPos(e), s = this.editor.hitScreen(this.editor.toImg(p.x, p.y));
@@ -692,19 +692,37 @@ class App {
   }
 
   /** Let the user keep a generated file: save to device / share / OneDrive. */
+  /** Let the user keep a generated file. On a phone: the system share menu (Photos, WhatsApp, OneDrive, Files...). */
   async deliver(blob, filename, title) {
-    const canShare = MOBILE && navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: blob.type })] });
+    const isProject = filename.toLowerCase().endsWith(PROJECT_EXT);
+    let shareFile = null;
+    if (MOBILE && navigator.canShare) {
+      // phones don't know ".vizproj" - share projects as a standard .zip so OneDrive / Files accept them
+      const cands = isProject
+        ? [[filename.slice(0, -PROJECT_EXT.length) + '.zip', 'application/zip'], [filename.slice(0, -PROJECT_EXT.length) + '.zip', 'application/octet-stream']]
+        : [[filename, blob.type || 'application/octet-stream']];
+      for (const [nm, type] of cands) {
+        const f = new File([blob], nm, { type });
+        try { if (navigator.canShare({ files: [f] })) { shareFile = f; break; } } catch { /* next */ }
+      }
+    }
     const buttons = [];
     if (OD.configured()) buttons.push({ label: t('☁ שמור ב-OneDrive'), value: 'cloud' });
-    if (canShare) buttons.push({ label: t('שתף / שמור ב-OneDrive או בקבצים'), value: 'share', primary: true });
-    buttons.push({ label: MOBILE ? t('הורד') : t('שמור במחשב…'), value: 'local', primary: !canShare });
+    buttons.push({ label: MOBILE ? t('הורד') : t('שמור במחשב…'), value: 'local', primary: !shareFile });
+    if (shareFile) buttons.push({ label: isProject ? t('שמור ב-OneDrive / בקבצים') : t('תמונות · WhatsApp · OneDrive'), value: 'share', primary: true });
     const sizeMb = (blob.size / 1048576).toFixed(1);
-    const body = h('div', {}, h('div', {}, `${filename}  (${sizeMb} MB)`),
-      canShare ? h('p', { class: 'hint' }, t('בתפריט השיתוף בוחרים OneDrive (או "שמור בקבצים" ותיקייה ב-OneDrive).')) : null);
+    const hint = shareFile
+      ? (isProject ? t('ייפתח תפריט השיתוף: בחר OneDrive, או "שמור בקבצים" ותיקייה ב-OneDrive.')
+        : t('ייפתח תפריט השיתוף: "שמור תמונה" לתמונות, WhatsApp לשליחה, או OneDrive.'))
+      : (MOBILE ? t('הקובץ יישמר בהורדות של הטלפון, ומשם אפשר להעלות אותו ל-OneDrive.') : null);
+    const body = h('div', {}, h('div', {}, `${shareFile ? shareFile.name : filename}  (${sizeMb} MB)`), hint ? h('p', { class: 'hint' }, hint) : null);
     const choice = await dialog({ title, body, buttons, dismiss: null });
     if (choice === 'local') return saveLocal(blob, filename);
     if (choice === 'share') {
-      try { await navigator.share({ files: [new File([blob], filename, { type: blob.type || 'application/octet-stream' })] }); return true; } catch { return false; }
+      try { await navigator.share({ files: [shareFile] }); return true; } catch (e) {
+        if (e && e.name !== 'AbortError') alertBox(title, t('השיתוף נכשל: {0}', e.message || e.name));
+        return false;
+      }
     }
     if (choice === 'cloud') return !!(await this.uploadToCloud(blob, filename));
     return false;
@@ -731,7 +749,7 @@ class App {
   async openProjectDialog() {
     if (!(await this.confirmDiscard())) return;
     // phones: no filter - iOS greys out file types it doesn't know (.vizproj)
-    const f = await pickFile($('#fileProject'), MOBILE ? '' : `${PROJECT_EXT},application/zip,application/octet-stream`);
+    const f = await pickFile($('#fileProject'), MOBILE ? '' : `${PROJECT_EXT},.zip,application/zip,application/octet-stream`);
     if (f) this.openProjectBlob(f, f.name);
   }
 

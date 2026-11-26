@@ -297,4 +297,10 @@ export const EN = {
   "ייצוא": "Export",
   "סמן קו על דבר שמידתו ידועה (דלת, חלון)": "Draw a line over something of known size (door, window)",
   "קנה המידה מוכן. אפשר לדייק את הקצוות, ואז \"הבא\"": "Scale is set. Fine-tune the ends if needed, then \"Next\"",
+  "שמור ב-OneDrive / בקבצים": "Save to OneDrive / Files",
+  "תמונות · WhatsApp · OneDrive": "Photos · WhatsApp · OneDrive",
+  "ייפתח תפריט השיתוף: בחר OneDrive, או \"שמור בקבצים\" ותיקייה ב-OneDrive.": "The share menu opens: choose OneDrive, or \"Save to Files\" and a OneDrive folder.",
+  "ייפתח תפריט השיתוף: \"שמור תמונה\" לתמונות, WhatsApp לשליחה, או OneDrive.": "The share menu opens: \"Save Image\" for Photos, WhatsApp to send, or OneDrive.",
+  "הקובץ יישמר בהורדות של הטלפון, ומשם אפשר להעלות אותו ל-OneDrive.": "The file is saved to the phone's downloads; from there it can be uploaded to OneDrive.",
+  "השיתוף נכשל: {0}": "Sharing failed: {0}",
 };
