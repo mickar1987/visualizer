@@ -8,7 +8,7 @@ import { rotateBackground, cropBackground, largestValidRect, meanLineAngle, appl
 import { resolutionText } from './infocard.js';
 import { addBackground, addMedia, isVideoFile, isImageFile } from './media.js';
 import { exportImage, exportVideo, videoExportSupported } from './exporter.js';
-import { saveProject, openProject, PROJECT_EXT } from './project.js';
+import { saveProject, openProject, PROJECT_EXT, saveProjectImage, containsProject } from './project.js';
 import * as OD from './onedrive.js';
 import { parseRequest, requestFromUrl, quoteTitle, quoteLabel } from './quote.js';
 import { $, $$, h, dialog, alertBox, confirmBox, promptNumber, progressBox, toast, pickFile, promptText } from './ui.js';
@@ -392,6 +392,10 @@ class App {
   }
 
   async setBackground(file) {
+    if (await containsProject(file).catch(() => false)) {
+      const open = await confirmBox(t('פרויקט הדמיה'), t('התמונה הזו כוללת פרויקט הדמיה שמור.\nלפתוח את הפרויקט (עם המסכים) או להשתמש בה רק כתמונה מהשטח?'), t('פתח פרויקט'), t('רק תמונה'));
+      if (open) { if (await this.confirmDiscard()) this.openProjectBlob(file, file.name); return; }
+    }
     if (this.doc.bg && (this.doc.screens.length || Object.keys(this.doc.measures).length)) {
       if (!(await confirmBox(t('החלפת תמונה'), t('להחליף את התמונה מהשטח?\nקנה המידה והמסכים יישארו במקומם בפיקסלים.')))) return;
     }
@@ -749,7 +753,7 @@ class App {
   async openProjectDialog() {
     if (!(await this.confirmDiscard())) return;
     // phones: no filter - iOS greys out file types it doesn't know (.vizproj)
-    const f = await pickFile($('#fileProject'), MOBILE ? '' : `${PROJECT_EXT},.zip,application/zip,application/octet-stream`);
+    const f = await pickFile($('#fileProject'), MOBILE ? '' : `${PROJECT_EXT},.zip,.jpg,.jpeg,application/zip,application/octet-stream`);
     if (f) this.openProjectBlob(f, f.name);
   }
 
@@ -789,8 +793,32 @@ class App {
     if (!this.doc.bg) return;
     if (!(await this.askProjectName())) return;
     const blob = await saveProject(this.doc, this.quote && this.quote.raw);
-    if (MOBILE) { if (await this.deliver(blob, this.projectFilename(), t('שמירת פרויקט'))) this.markSaved(); return; }
+    if (MOBILE) { if (await this.saveProjectPhone(blob)) this.markSaved(); return; }
     if (await saveLocal(blob, this.projectFilename())) this.markSaved();
+  }
+
+  /** Phone: the project travels as a photo (JPG with the project inside) so OneDrive / WhatsApp show up,
+   *  or as a .zip for "Save to Files". */
+  async saveProjectPhone(zipBlob) {
+    const base = safeName(this.doc.projectName) || this.baseName();
+    const canFiles = (f) => { try { return !!(navigator.canShare && navigator.canShare({ files: [f] })); } catch { return false; } };
+    const zipFile = new File([zipBlob], `${base}.zip`, { type: 'application/zip' });
+    const imgFile = new File([await saveProjectImage(this.doc, this.quote && this.quote.raw)], `${base}.jpg`, { type: 'image/jpeg' });
+    const buttons = [{ label: t('הורד'), value: 'local' }];
+    if (canFiles(zipFile)) buttons.push({ label: t('קובץ ZIP (שמור בקבצים)'), value: 'zip' });
+    if (canFiles(imgFile)) buttons.push({ label: t('OneDrive · WhatsApp (כתמונה)'), value: 'img', primary: true });
+    else buttons[0].primary = true;
+    const body = h('div', { style: 'display:flex;flex-direction:column;gap:8px' },
+      h('div', {}, t('"כתמונה": נשמרת תמונת ההדמיה, והפרויקט המלא נמצא בתוכה. כדי להמשיך לעבוד פותחים אותה ב"פתח פרויקט" (בטלפון או במחשב).')),
+      h('p', { class: 'hint' }, t('שמור ב-OneDrive ולא באפליקציית התמונות - התמונות עלולות לשמור רק את התמונה בלי הפרויקט.')));
+    const choice = await dialog({ title: t('שמירת פרויקט'), body, buttons, dismiss: null });
+    if (choice === 'local') return saveLocal(zipBlob, this.projectFilename());
+    const f = choice === 'img' ? imgFile : choice === 'zip' ? zipFile : null;
+    if (!f) return false;
+    try { await navigator.share({ files: [f] }); return true; } catch (e) {
+      if (e && e.name !== 'AbortError') alertBox(t('שמירת פרויקט'), t('השיתוף נכשל: {0}', e.message || e.name));
+      return false;
+    }
   }
 
   markSaved() { this.savedPos = this.doc.hpos; store.autosaveNow(this); this.updateUI(); this.setStatus(t('הפרויקט נשמר'), true); }

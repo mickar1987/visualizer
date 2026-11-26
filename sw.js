@@ -1,6 +1,6 @@
 // Offline cache: after the first visit the app works without internet.
 // Online the files come from the site (so updates show at once); offline they come from the saved copy.
-const CACHE = 'viz-v4'; // change on every release so phones refresh the cache
+const CACHE = 'viz-v5'; // change on every release so phones refresh the cache
 const FILES = [
     './',
     './index.html',

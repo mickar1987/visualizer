@@ -118,18 +118,18 @@ body:not(.caps-cloud) .cloud { display: none !important; }
 /* SVG icon buttons */
 .ic { display: block; flex: none; }
 button.icon { display: inline-grid; place-items: center; width: 38px; height: 34px; padding: 0; }
-button.icon:disabled { opacity: .35; }
+button.icon:disabled { opacity: 1; color: #5d636e; }
 html[dir=ltr] .flip-ltr { transform: scaleX(-1); }
 #mSteps, #mHint, #mBar, #mSheet { display: none; }
 
 /* ---------------- mobile / tablet ---------------- */
 body.is-mobile {
-  --top-h: 52px; --steps-h: 46px; --hint-h: 34px; --bar-h: 66px; --safe-t: env(safe-area-inset-top, 0px);
+  --top-h: 52px; --steps-h: 46px; --hint-h: 34px; --bar-h: 66px; --safe-t: calc(env(safe-area-inset-top, 0px) + min(env(safe-area-inset-top, 0px), 16px));
   font-size: 15px; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
 }
 body.is-mobile input, body.is-mobile select { user-select: text; -webkit-user-select: text; }
 body.is-mobile #topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 25; padding: var(--safe-t) 10px 0;
-  height: calc(var(--top-h) + var(--safe-t)); background: #0d0f12; border-bottom: 0; }
+  height: calc(var(--top-h) + var(--safe-t)); background: #0d0f12; border-bottom: 0; align-items: center; }
 body.is-mobile #topbar .tools { gap: 4px; }
 body.is-mobile button.icon { width: 44px; height: 40px; background: transparent; border: 0; color: #e8eaed; }
 body.is-mobile button.icon:active { background: #262a32; }
@@ -186,6 +186,8 @@ body.is-mobile .field { grid-template-columns: 96px 1fr auto; }
 body.is-mobile .modal-back { place-items: end center; padding: 0; }
 body.is-mobile .modal { width: 100%; border-radius: 16px 16px 0 0; max-height: 88vh; padding-bottom: var(--safe-b); }
 body.is-mobile .menu-sheet .body button { text-align: start; }
+body.is-mobile .modal footer { flex-direction: column-reverse; align-items: stretch; }
+body.is-mobile .modal footer button { width: 100%; padding: 12px; }
 body.is-mobile .empty-card { padding: 22px 18px; }
 body.is-mobile .empty-card .row { display: none; }
 body.is-mobile .empty-card p { margin: 0; }

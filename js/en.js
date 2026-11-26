@@ -303,4 +303,12 @@ export const EN = {
   "ייפתח תפריט השיתוף: \"שמור תמונה\" לתמונות, WhatsApp לשליחה, או OneDrive.": "The share menu opens: \"Save Image\" for Photos, WhatsApp to send, or OneDrive.",
   "הקובץ יישמר בהורדות של הטלפון, ומשם אפשר להעלות אותו ל-OneDrive.": "The file is saved to the phone's downloads; from there it can be uploaded to OneDrive.",
   "השיתוף נכשל: {0}": "Sharing failed: {0}",
+  "קובץ ZIP (שמור בקבצים)": "ZIP file (Save to Files)",
+  "OneDrive · WhatsApp (כתמונה)": "OneDrive · WhatsApp (as photo)",
+  "\"כתמונה\": נשמרת תמונת ההדמיה, והפרויקט המלא נמצא בתוכה. כדי להמשיך לעבוד פותחים אותה ב\"פתח פרויקט\" (בטלפון או במחשב).": "\"As photo\": the visualization image is saved with the full project inside it. To keep working, open it with \"Open project\" (on the phone or the computer).",
+  "שמור ב-OneDrive ולא באפליקציית התמונות - התמונות עלולות לשמור רק את התמונה בלי הפרויקט.": "Save it to OneDrive, not the Photos app - Photos may keep only the picture without the project.",
+  "פרויקט הדמיה": "Visualization project",
+  "התמונה הזו כוללת פרויקט הדמיה שמור.\nלפתוח את הפרויקט (עם המסכים) או להשתמש בה רק כתמונה מהשטח?": "This photo contains a saved visualization project.\nOpen the project (with the screens), or use it only as a site photo?",
+  "פתח פרויקט": "Open project",
+  "רק תמונה": "Photo only",
 };

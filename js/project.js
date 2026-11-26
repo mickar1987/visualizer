@@ -3,6 +3,7 @@ import { Screen } from './model.js';
 import { addBackground, addMedia } from './media.js';
 import { t } from './i18n.js';
 import { CAPS } from './device.js';
+import { exportImage } from './exporter.js';
 
 export const PROJECT_EXT = '.vizproj';
 const extOf = (mime, fallback) => ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm' }[mime] || fallback);
@@ -85,4 +86,24 @@ export async function openProject(doc, blob, onFrame) {
     return s;
   });
   return { quote: proj.quote || null, skipped: (proj.media || []).length - Object.keys(idMap).length };
+}
+
+/** The visualization as a normal JPG with the whole project appended (image viewers ignore the extra bytes).
+ *  Phones offer OneDrive / WhatsApp for images but not for .zip files - so a project can travel as a photo. */
+export async function saveProjectImage(doc, quote) {
+  const img = await exportImage(doc, { type: 'image/jpeg', quality: 0.9 });
+  const zip = await saveProject(doc, quote);
+  return new Blob([img, zip], { type: 'image/jpeg' });
+}
+
+/** True when the file (zip, or a JPG from saveProjectImage) holds a visualization project. */
+export async function containsProject(blob) {
+  if (!blob || blob.size < 22) return false;
+  const tail = new Uint8Array(await blob.slice(Math.max(0, blob.size - 66000)).arrayBuffer());
+  for (let i = tail.length - 22; i >= 0; i--) {
+    if (tail[i] === 0x50 && tail[i + 1] === 0x4b && tail[i + 2] === 0x05 && tail[i + 3] === 0x06) {
+      try { const z = await JSZip.loadAsync(blob); return !!z.file('project.json'); } catch { return false; }
+    }
+  }
+  return false;
 }
