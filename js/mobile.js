@@ -63,8 +63,20 @@ export class MobileUI {
   }
 
   btn(ic, label, fn, { primary = false, disabled = false, on = false } = {}) {
-    const b = h('button', { class: 'mbtn' + (primary ? ' primary' : '') + (on ? ' on' : ''), onclick: fn });
+    const b = h('button', { class: 'mbtn' + (primary ? ' primary' : '') + (on ? ' on' : '') });
     b.disabled = disabled;
+    // Act when the finger lifts: on iPhone the first tap on a button that just appeared can be
+    // swallowed as a "hover", so waiting for "click" made people tap twice.
+    let down = false, fired = 0;
+    b.addEventListener('pointerdown', (e) => { down = e.pointerType !== 'mouse'; });
+    b.addEventListener('pointerleave', () => { down = false; });
+    b.addEventListener('pointerup', (e) => {
+      if (!down || b.disabled) return;
+      down = false; fired = Date.now();
+      e.preventDefault();
+      fn();
+    });
+    b.addEventListener('click', () => { if (Date.now() - fired > 800 && !b.disabled) fn(); });
     b.innerHTML = icon(ic, 24) + `<span>${label}</span>`;
     if (ic === 'next') b.firstChild.classList.add('flip-ltr');
     return b;

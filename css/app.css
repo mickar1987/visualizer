@@ -10,10 +10,10 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 button, input, select { font: inherit; color: inherit; }
 button { background: var(--panel2); border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 12px;
   cursor: pointer; white-space: nowrap; touch-action: manipulation; }
-button:hover:not(:disabled) { border-color: #4b5262; background: #2e333d; }
+@media (hover: hover) { button:hover:not(:disabled) { border-color: #4b5262; background: #2e333d; } }
 button:disabled { opacity: .45; cursor: default; }
 button.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-button.primary:hover:not(:disabled) { background: var(--primary-h); }
+@media (hover: hover) { button.primary:hover:not(:disabled) { background: var(--primary-h); } }
 button.cloud { background: #12385c; border-color: #1d5b94; }
 button.danger { color: #ff8b8e; }
 button.toggle.on { background: #3a3417; border-color: var(--accent); color: var(--accent); }
@@ -88,7 +88,7 @@ input:focus, select:focus { outline: 2px solid #3b6fd8; outline-offset: -1px; }
 #stage.dragover::after { content: ""; position: absolute; inset: 8px; border: 3px dashed var(--accent); border-radius: 12px; pointer-events: none; }
 
 /* modal */
-.modal-back { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: grid; place-items: center; z-index: 50; padding: 12px; }
+.modal-back { position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-h, 100%); background: rgba(0,0,0,.55); display: grid; place-items: center; z-index: 50; padding: 12px; }
 .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; width: min(460px, 100%); max-height: 92vh;
   display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
 .modal header { padding: 12px 16px; font-weight: 600; font-size: 15px; border-bottom: 1px solid var(--line); }
@@ -187,7 +187,7 @@ body.is-mobile button { padding: 10px 14px; }
 body.is-mobile input[type=text], body.is-mobile input[type=number], body.is-mobile select { padding: 9px 10px; font-size: 16px; }
 body.is-mobile .field { grid-template-columns: 96px 1fr auto; }
 body.is-mobile .modal-back { place-items: end center; padding: 0; }
-body.is-mobile .modal { width: 100%; border-radius: 16px 16px 0 0; max-height: 88vh; padding-bottom: var(--safe-b); }
+body.is-mobile .modal { width: 100%; border-radius: 16px 16px 0 0; max-height: calc(var(--vv-h, 100vh) - 12px); padding-bottom: var(--safe-b); }
 body.is-mobile .menu-sheet .body button { text-align: start; }
 body.is-mobile .modal footer { flex-direction: column-reverse; align-items: stretch; }
 body.is-mobile .modal footer button { width: 100%; padding: 12px; }

@@ -2,6 +2,18 @@
 import { t } from './i18n.js';
 
 export const $ = (s, r = document) => r.querySelector(s);
+
+// iPhone doesn't shrink the page when the keyboard opens: keep windows inside the visible part.
+if (window.visualViewport) {
+  const vv = window.visualViewport, root = document.documentElement;
+  const sync = () => {
+    root.style.setProperty('--vv-h', `${Math.round(vv.height)}px`);
+    root.style.setProperty('--vv-top', `${Math.round(vv.offsetTop)}px`);
+  };
+  vv.addEventListener('resize', sync);
+  vv.addEventListener('scroll', sync);
+  sync();
+}
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
 export function h(tag, attrs = {}, ...kids) {
