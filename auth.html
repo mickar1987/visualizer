@@ -1,0 +1,13 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>OneDrive</title></head>
+<body style="background:#16181d;color:#ccc;font:15px Segoe UI,Arial,sans-serif;display:grid;place-items:center;height:100vh;margin:0">
+<div>…</div>
+<script>
+// Redirect target of the OneDrive sign-in. In a popup the main window reads this URL itself;
+// after a full-page redirect we hand the result to the app and go back to it.
+if (!window.opener) {
+  try { sessionStorage.setItem('viz.od.redirect', location.search.slice(1)); } catch (e) {}
+  location.replace('./index.html');
+}
+</script>
+</body></html>

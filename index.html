@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#16181d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>הדמיה למסכים</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="css/app.css">
+<script src="vendor/jszip.min.js"></script>
+</head>
+<body>
+<header id="topbar">
+  <div class="brand"><img src="icon.svg" alt=""><span data-t>הדמיה למסכים</span><span id="projTitle"></span></div>
+  <nav class="tools">
+    <button id="btnMenu" class="icon mobile-only" data-t-title="תפריט">☰</button>
+    <div class="desk-only group">
+      <button id="btnNew" data-t>חדש</button>
+      <button id="btnOpen" data-t>פתח…</button>
+      <button id="btnSave" data-t>שמור…</button>
+      <button id="btnCloud" class="cloud" data-t>☁ OneDrive</button>
+      <button id="btnQuoteFile" class="quote-only" data-t>בקשה מהצעה…</button>
+    </div>
+    <button id="btnUndo" class="icon" data-t-title="ביטול פעולה (Ctrl+Z)">↶</button>
+    <button id="btnRedo" class="icon" data-t-title="ביצוע מחדש (Ctrl+Y)">↷</button>
+    <button id="btnSettings" class="icon" data-t-title="הגדרות">⚙</button>
+  </nav>
+</header>
+
+<main id="main">
+  <aside id="panel">
+    <div id="sheetGrip" class="mobile-only"><span></span></div>
+    <div id="steps">
+      <button class="step" data-step="1"><b>1</b><span data-t>תמונה</span></button>
+      <button class="step" data-step="2"><b>2</b><span data-t>קנה מידה</span></button>
+      <button class="step" data-step="3"><b>3</b><span data-t>מסכים</span></button>
+    </div>
+
+    <section class="pane" data-pane="1">
+      <p class="hint" data-t>טען תמונה מהשטח שעליה יוצבו המסכים.</p>
+      <div class="row wrap">
+        <button id="btnCamera" class="primary mobile-only" data-t>📷 צלם</button>
+        <button id="btnLoadBg" class="primary" data-t>🖼 טען תמונה…</button>
+        <button id="btnBgCloud" class="cloud" data-t>☁ מ-OneDrive</button>
+      </div>
+      <p class="hint desk-only" data-t>אפשר גם לגרור קובץ לחלון או להדביק (Ctrl+V)</p>
+      <div id="lblBg" class="info"></div>
+      <div class="box">
+        <div class="box-title" data-t>יישור וחיתוך</div>
+        <div class="row">
+          <button id="btnRotL" data-t-title="סיבוב 90° נגד כיוון השעון">⟲ 90°</button>
+          <button id="btnRotR" data-t-title="סיבוב 90° עם כיוון השעון">⟳ 90°</button>
+          <button id="btnRotAny" data-t>סיבוב בזווית…</button>
+        </div>
+        <button id="btnLevel" class="tool wide" data-tool="level" data-t-title="סמן 2 קווי ייחוס שאמורים להיות אופקיים (רצפה, תקרה, מדף, משקוף).
+התמונה תסובב לזווית האמצע ביניהם, כך שתהיה ישרה ככל האפשר." data-t>יישור אוטומטי (2 קווים)</button>
+        <div class="row">
+          <button id="btnCrop" class="tool" data-tool="crop" data-t-title="גרור מלבן על האזור שרוצים להשאיר" data-t>✂ חיתוך ידני</button>
+          <button id="btnAutoCrop" data-t-title="חותך את המלבן הגדול ביותר בלי שוליים שחורים מהסיבוב" data-t>✂ חיתוך אוטומטי</button>
+        </div>
+        <label class="check"><input id="chkAutoCrop" type="checkbox" checked> <span data-t>חתוך שוליים שחורים אוטומטית אחרי סיבוב</span></label>
+      </div>
+      <button id="btnNext1" class="primary wide" data-t>✓ אישור והמשך לקנה מידה ←</button>
+    </section>
+
+    <section class="pane" data-pane="2">
+      <p class="hint" data-t>גרור קו על פני אובייקט שמידתו ידועה (דלת, חלון, אריח, קיר) ובאותו מישור שבו יוצב המסך.</p>
+      <div class="row">
+        <button id="btnMW" class="tool" data-tool="w" data-t>סמן רוחב ידוע</button>
+        <button id="btnMH" class="tool" data-tool="h" data-t>סמן גובה ידוע</button>
+      </div>
+      <div id="measureList"></div>
+      <div id="lblScale" class="info"></div>
+      <button id="btnNext2" class="primary wide" data-t>✓ אישור והמשך להוספת מסכים ←</button>
+    </section>
+
+    <section class="pane" data-pane="3">
+      <div class="row wrap">
+        <button id="btnAdd" class="primary" data-t>+ הוסף מסך</button>
+        <button id="btnLink" class="toggle" data-t-title="שמירת קנה מידה: גרירת פינה מזיזה גם את הפינה הסמוכה, ושינוי מידה שומר על היחס" data-t>🔗 שמירת יחס</button>
+        <button id="btnMagnet" class="toggle on" data-t-title="הצמדה לפינות ולקצוות של מסכים אחרים" data-t>🧲 מגנוט</button>
+      </div>
+
+      <div id="quoteBox" class="box quote-only" hidden>
+        <div class="box-title" data-t>מסכים מההצעה</div>
+        <div id="quoteTitle" class="info"></div>
+        <div id="quoteList" class="list"></div>
+        <div class="row">
+          <button id="btnQuoteAdd" data-t>+ הוסף נבחר</button>
+          <button id="btnQuoteAll" data-t>+ הוסף הכל</button>
+        </div>
+      </div>
+
+      <div id="screenList" class="list"></div>
+
+      <div id="props" class="box" hidden>
+        <div class="box-title"><span data-t>מסך נבחר</span><span id="lblMulti" class="muted"></span></div>
+        <label class="field"><span data-t>שם:</span><input id="edName" type="text"></label>
+        <button id="btnInfo" class="toggle wide" data-t>📋 הצג פרטי מסך</button>
+        <div class="row wrap">
+          <button id="btnContent" data-t>טען תוכן…</button>
+          <button id="btnContentCloud" class="cloud" data-t>☁</button>
+          <button id="btnClear" data-t>הסר תוכן</button>
+        </div>
+        <div id="lblContent" class="info"></div>
+        <div id="customBox">
+          <label class="field"><span data-t>רוחב:</span><input id="spW" type="number" step="1" min="1" inputmode="decimal"><i data-t>ס״מ</i></label>
+          <label class="field"><span data-t>גובה:</span><input id="spH" type="number" step="1" min="1" inputmode="decimal"><i data-t>ס״מ</i></label>
+          <label class="field"><span>Pitch:</span><input id="spPitch" type="number" step="0.1" min="0.3" inputmode="decimal"><i data-t>מ״מ</i></label>
+        </div>
+        <label class="field"><span data-t>מסגרת:</span><input id="spBezel" type="number" step="1" min="0" inputmode="decimal"><i data-t>ס״מ</i></label>
+        <label class="field"><span data-t>זווית:</span><input id="spAngle" type="number" step="1" inputmode="decimal"><i>°</i></label>
+        <label class="field"><span data-t>התאמת תוכן:</span>
+          <select id="cbFit">
+            <option value="fill" data-t>מילוי (חיתוך עודפים)</option>
+            <option value="fit" data-t>התאמה (פסים שחורים)</option>
+            <option value="stretch" data-t>מתיחה</option>
+          </select></label>
+        <label class="field"><span data-t>בהירות:</span><input id="slBright" type="range" min="20" max="200" step="1"><i id="lblBright"></i></label>
+        <div id="lblSize" class="info pre"></div>
+        <div class="row wrap">
+          <button id="btnReset" data-t>אפס ליחס לפי קנה המידה</button>
+          <button id="btnDup" data-t>שכפל</button>
+          <button id="btnDel" class="danger" data-t>מחק מסך</button>
+        </div>
+      </div>
+
+      <div class="box">
+        <div class="box-title" data-t>תוצאה</div>
+        <div class="row wrap">
+          <button id="btnPlay" class="video-only toggle" data-t>▶ נגן סרטונים בתצוגה</button>
+          <button id="btnFitView" data-t>התאם לחלון</button>
+        </div>
+        <div class="row wrap">
+          <button id="btnExpImg" class="primary" data-t>ייצא תמונה…</button>
+          <button id="btnExpVid" class="primary video-only" data-t>ייצא סרטון (MP4)…</button>
+        </div>
+        <button id="btnSaveCloud" class="cloud wide" data-t>☁ שמור פרויקט ב-OneDrive</button>
+      </div>
+    </section>
+  </aside>
+
+  <div id="stage">
+    <canvas id="gl"></canvas>
+    <canvas id="overlay"></canvas>
+    <canvas id="loupe" width="160" height="160" hidden></canvas>
+    <div id="empty" class="empty">
+      <div class="empty-card">
+        <img src="icon.svg" alt="">
+        <h2 data-t>הדמיה למסכים</h2>
+        <p data-t>התחל בתמונה מהשטח</p>
+        <div class="row center wrap">
+          <button id="btnEmptyCamera" class="primary mobile-only" data-t>📷 צלם</button>
+          <button id="btnEmptyLoad" class="primary" data-t>🖼 טען תמונה…</button>
+          <button id="btnEmptyOpen" data-t>📂 פתח פרויקט…</button>
+        </div>
+      </div>
+    </div>
+    <div id="toolHint" hidden></div>
+  </div>
+</main>
+
+<footer id="status"><span id="statusText"></span></footer>
+
+<div id="mobileBar" class="mobile-only">
+  <button id="mbSheet" data-t>☰ אפשרויות</button>
+  <button id="mbAdd" data-t>+ מסך</button>
+  <button id="mbExport" data-t>⇪ ייצוא</button>
+</div>
+
+<div id="modalRoot"></div>
+<input id="fileImage" type="file" accept="image/*" hidden>
+<input id="fileCamera" type="file" accept="image/*" capture="environment" hidden>
+<input id="fileContent" type="file" hidden>
+<input id="fileProject" type="file" accept=".vizproj,application/zip" hidden>
+<input id="fileQuote" type="file" accept=".json,application/json" hidden>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
